@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>功能测试 - 微信输入法助手</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+            width: 200px;
+        }
+        .status { font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>🧪 微信输入法助手 - 功能测试</h1>
+
+    <div class="test-section">
+        <h2>📧 邮箱提交测试</h2>
+        <p>测试邮箱验证和提交功能</p>
+        <input type="email" id="testEmail" placeholder="输入测试邮箱" value="test@example.com">
+        <button onclick="testEmailSubmission()">测试邮箱提交</button>
+        <div id="emailResult"></div>
+        <div class="status" id="emailStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 事件追踪测试</h2>
+        <p>测试Google Analytics事件追踪</p>
+        <button onclick="testEventTracking()">测试事件追踪</button>
+        <button onclick="testCustomEvent()">测试自定义事件</button>
+        <div id="eventResult"></div>
+        <div class="status" id="eventStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 本地存储测试</h2>
+        <p>测试离线存储和数据同步</p>
+        <button onclick="testLocalStorage()">测试本地存储</button>
+        <button onclick="testDataSync()">测试数据同步</button>
+        <button onclick="clearLocalData()">清除本地数据</button>
+        <div id="storageResult"></div>
+        <div class="status" id="storageStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 网络状态测试</h2>
+        <p>测试网络状态检测和离线功能</p>
+        <button onclick="testNetworkStatus()">检查网络状态</button>
+        <button onclick="simulateOffline()">模拟离线</button>
+        <button onclick="simulateOnline()">模拟在线</button>
+        <div id="networkResult"></div>
+        <div class="status" id="networkStatus">当前状态: <span id="onlineStatus">在线</span></div>
+    </div>
+
+    <div class="test-section">
+        <h2>⚙️ 配置检查</h2>
+        <p>检查API配置和设置</p>
+        <button onclick="checkConfiguration()">检查配置</button>
+        <div id="configResult"></div>
+        <div class="status" id="configStatus"></div>
+    </div>
+
+    <script type="module">
+        // 导入API模块
+        import { submitEmail, trackEvent, syncLocalData, isOnline } from './scripts/api.js';
+
+        // 邮箱提交测试
+        window.testEmailSubmission = async function() {
+            const email = document.getElementById('testEmail').value;
+            const resultDiv = document.getElementById('emailResult');
+            const statusDiv = document.getElementById('emailStatus');
+
+            if (!email) {
+                showResult(resultDiv, '请输入邮箱地址', 'warning');
+                return;
+            }
+
+            statusDiv.textContent = '正在提交邮箱...';
+
+            try {
+                const result = await submitEmail(email);
+                if (result.success) {
+                    showResult(resultDiv, `✅ ${result.message}${result.isOffline ? ' (离线模式)' : ''}`, 'success');
+                } else {
+                    showResult(resultDiv, `❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ 提交失败: ${error.message}`, 'error');
+            }
+            statusDiv.textContent = '';
+        };
+
+        // 事件追踪测试
+        window.testEventTracking = function() {
+            const resultDiv = document.getElementById('eventResult');
+            const statusDiv = document.getElementById('eventStatus');
+
+            statusDiv.textContent = '正在追踪事件...';
+
+            try {
+                trackEvent('test_button_click', {
+                    button_type: 'test',
+                    timestamp: new Date().toISOString()
+                });
+                showResult(resultDiv, '✅ 事件追踪成功 (请查看GA4实时数据)', 'success');
+            } catch (error) {
+                showResult(resultDiv, `❌ 事件追踪失败: ${error.message}`, 'error');
+            }
+            statusDiv.textContent = '';
+        };
+
+        // 自定义事件测试
+        window.testCustomEvent = function() {
+            const resultDiv = document.getElementById('eventResult');
+
+            try {
+                trackEvent('custom_test_event', {
+                    test_parameter: 'custom_value',
+                    user_action: 'button_click',
+                    page_section: 'test_page'
+                });
+                showResult(resultDiv, '✅ 自定义事件追踪成功', 'success');
+            } catch (error) {
+                showResult(resultDiv, `❌ 自定义事件失败: ${error.message}`, 'error');
+            }
+        };
+
+        // 本地存储测试
+        window.testLocalStorage = function() {
+            const resultDiv = document.getElementById('storageResult');
+
+            try {
+                // 测试基本存储
+                localStorage.setItem('testKey', 'testValue_' + Date.now());
+                const value = localStorage.getItem('testKey');
+
+                if (value) {
+                    showResult(resultDiv, `✅ 本地存储正常: ${value}`, 'success');
+                } else {
+                    showResult(resultDiv, '❌ 本地存储失败', 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ 存储错误: ${error.message}`, 'error');
+            }
+        };
+
+        // 数据同步测试
+        window.testDataSync = async function() {
+            const resultDiv = document.getElementById('storageResult');
+            const statusDiv = document.getElementById('storageStatus');
+
+            statusDiv.textContent = '正在同步数据...';
+
+            try {
+                const result = await syncLocalData();
+                if (result.success) {
+                    showResult(resultDiv, `✅ 数据同步成功 (同步了 ${result.syncedCount} 条数据)`, 'success');
+                } else {
+                    showResult(resultDiv, `❌ 数据同步失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ 同步错误: ${error.message}`, 'error');
+            }
+            statusDiv.textContent = '';
+        };
+
+        // 清除本地数据
+        window.clearLocalData = function() {
+            const resultDiv = document.getElementById('storageResult');
+
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                showResult(resultDiv, '✅ 本地数据已清除', 'success');
+            } catch (error) {
+                showResult(resultDiv, `❌ 清除失败: ${error.message}`, 'error');
+            }
+        };
+
+        // 网络状态测试
+        window.testNetworkStatus = function() {
+            const resultDiv = document.getElementById('networkResult');
+            const online = isOnline();
+
+            showResult(resultDiv, `网络状态: ${online ? '在线' : '离线'}`, online ? 'success' : 'warning');
+            updateNetworkStatus();
+        };
+
+        // 模拟离线
+        window.simulateOffline = function() {
+            window.dispatchEvent(new Event('offline'));
+            updateNetworkStatus();
+            showResult(document.getElementById('networkResult'), '已切换到离线模式', 'warning');
+        };
+
+        // 模拟在线
+        window.simulateOnline = function() {
+            window.dispatchEvent(new Event('online'));
+            updateNetworkStatus();
+            showResult(document.getElementById('networkResult'), '已切换到在线模式', 'success');
+        };
+
+        // 配置检查
+        window.checkConfiguration = function() {
+            const resultDiv = document.getElementById('configResult');
+            const checks = [];
+
+            // 检查API配置
+            try {
+                // 这里需要导入API_CONFIG，但由于是模块，我们用其他方式检查
+                const scriptContent = document.querySelector('script[src*="api.js"]');
+                if (scriptContent) {
+                    checks.push('✅ API脚本已加载');
+                } else {
+                    checks.push('❌ API脚本未加载');
+                }
+            } catch (error) {
+                checks.push(`❌ API配置检查失败: ${error.message}`);
+            }
+
+            // 检查GA4配置
+            if (typeof gtag !== 'undefined') {
+                checks.push('✅ Google Analytics已加载');
+            } else {
+                checks.push('❌ Google Analytics未加载');
+            }
+
+            // 检查浏览器支持
+            if ('localStorage' in window) {
+                checks.push('✅ 支持本地存储');
+            } else {
+                checks.push('❌ 不支持本地存储');
+            }
+
+            if ('fetch' in window) {
+                checks.push('✅ 支持Fetch API');
+            } else {
+                checks.push('❌ 不支持Fetch API');
+            }
+
+            resultDiv.innerHTML = checks.join('<br>');
+        };
+
+        // 辅助函数
+        function showResult(element, message, type) {
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function updateNetworkStatus() {
+            const statusSpan = document.getElementById('onlineStatus');
+            statusSpan.textContent = isOnline() ? '在线' : '离线';
+            statusSpan.style.color = isOnline() ? '#28a745' : '#dc3545';
+        }
+
+        // 监听网络状态变化
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateNetworkStatus();
+            console.log('测试页面已加载');
+        });
+    </script>
+</body>
+</html>

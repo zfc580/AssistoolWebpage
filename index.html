@@ -8,6 +8,31 @@
     <meta name="keywords" content="微信输入法,通讯录导入,输入法工具,联系人同步">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/responsive.css">
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YOUR_GA4_MEASUREMENT_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        // 配置GA4测量ID - 需要替换为实际的测量ID
+        gtag('config', 'G-YOUR_GA4_MEASUREMENT_ID', {
+            page_title: '微信输入法助手 - 营销落地页',
+            page_location: window.location.href,
+            custom_map: {
+                custom_parameter_1: 'landing_page_type',
+                custom_parameter_2: 'user_engagement'
+            }
+        });
+
+        // 页面性能监控
+        gtag('event', 'page_view', {
+            page_title: '微信输入法助手 - 营销落地页',
+            page_location: window.location.href,
+            send_to: 'G-YOUR_GA4_MEASUREMENT_ID'
+        });
+    </script>
 </head>
 <body>
     <!-- 导航栏 -->

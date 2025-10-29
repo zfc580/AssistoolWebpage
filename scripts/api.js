@@ -1,6 +1,11 @@
-// API配置
+// API配置 - 使用免费第三方服务
 const API_CONFIG = {
-    baseURL: 'https://your-api-domain.com/api', // 替换为实际的API地址
+    // Formspree 配置 - 免费邮箱收集服务
+    formURL: 'https://formspree.io/f/YOUR_FORMSPREE_ID', // 替换为你的Formspree表单ID
+    // Google Analytics 4 配置
+    ga4MeasurementId: 'G-YOUR_GA4_MEASUREMENT_ID', // 替换为你的GA4测量ID
+    // Google Sheets 备选方案
+    sheetDBEndpoint: 'https://api.sheetdb.io/api/v1/YOUR_SHEETDB_ID', // 可选备选方案
     timeout: 10000,
     endpoints: {
         submitEmail: '/email/subscribe',
@@ -114,22 +119,29 @@ class API {
 // 创建API实例
 const api = new API();
 
-// 邮箱提交API
+// 邮箱提交API - 使用Formspree
 export async function submitEmail(email) {
     try {
-        // 发送邮箱到后端
-        const response = await api.post(API_CONFIG.endpoints.submitEmail, {
-            email: email,
-            source: 'landing_page',
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            referrer: document.referrer || 'direct',
-            language: navigator.language
+        // 首先尝试使用Formspree
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('source', 'landing_page');
+        formData.append('timestamp', new Date().toISOString());
+        formData.append('user_agent', navigator.userAgent);
+        formData.append('referrer', document.referrer || 'direct');
+        formData.append('language', navigator.language);
+
+        const response = await fetch(API_CONFIG.formURL, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
         });
 
-        if (response.success) {
-            // 记录成功事件
-            trackEvent('email_submitted', {
+        if (response.ok) {
+            // 记录成功事件到GA4
+            gtagTrackEvent('email_submitted', {
                 email: email,
                 source: 'landing_page'
             });
@@ -139,13 +151,48 @@ export async function submitEmail(email) {
                 message: '预约成功！我们会在工具发布后第一时间通知您。'
             };
         } else {
-            return response;
+            throw new Error('Formspree提交失败');
         }
 
     } catch (error) {
         console.error('邮箱提交错误:', error);
 
-        // 如果API失败，使用本地存储作为备选方案
+        // 尝试备选方案：Google Sheets (如果配置了的话)
+        if (API_CONFIG.sheetDBEndpoint && !API_CONFIG.sheetDBEndpoint.includes('YOUR_SHEETDB_ID')) {
+            try {
+                const sheetResponse = await fetch(API_CONFIG.sheetDBEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        source: 'landing_page',
+                        timestamp: new Date().toISOString(),
+                        user_agent: navigator.userAgent,
+                        referrer: document.referrer || 'direct',
+                        language: navigator.language
+                    })
+                });
+
+                if (sheetResponse.ok) {
+                    gtagTrackEvent('email_submitted', {
+                        email: email,
+                        source: 'landing_page',
+                        method: 'sheetdb'
+                    });
+
+                    return {
+                        success: true,
+                        message: '预约成功！我们会在工具发布后第一时间通知您。'
+                    };
+                }
+            } catch (sheetError) {
+                console.warn('Google Sheets提交失败:', sheetError);
+            }
+        }
+
+        // 最后使用本地存储作为备选方案
         return fallbackEmailSubmission(email);
     }
 }
@@ -195,26 +242,61 @@ function fallbackEmailSubmission(email) {
     }
 }
 
-// 事件追踪API
+// Google Analytics 4 追踪函数
+function gtagTrackEvent(eventName, parameters = {}) {
+    try {
+        // 检查 gtag 函数是否存在
+        if (typeof gtag === 'function') {
+            gtag('event', eventName, {
+                ...parameters,
+                custom_map: {
+                    custom_parameter_1: 'custom_parameter_1',
+                    custom_parameter_2: 'custom_parameter_2'
+                }
+            });
+        } else {
+            // 如果 gtag 不可用，尝试使用 dataLayer
+            if (typeof dataLayer !== 'undefined') {
+                dataLayer.push({
+                    event: eventName,
+                    event_parameters: parameters
+                });
+            } else {
+                console.warn('Google Analytics 未初始化');
+            }
+        }
+    } catch (error) {
+        console.warn('GA4 事件追踪失败:', error);
+    }
+}
+
+// 事件追踪API - 使用Google Analytics 4
 export async function trackEvent(eventName, properties = {}) {
     try {
         const eventData = {
-            event: eventName,
-            properties: {
-                ...properties,
-                timestamp: new Date().toISOString(),
-                page: window.location.pathname,
-                userAgent: navigator.userAgent,
-                sessionId: getSessionId()
-            }
+            ...properties,
+            timestamp: new Date().toISOString(),
+            page: window.location.pathname,
+            userAgent: navigator.userAgent,
+            sessionId: getSessionId()
         };
 
-        // 异步发送，不阻塞用户操作
-        api.post(API_CONFIG.endpoints.trackEvent, eventData).catch(error => {
-            console.warn('事件追踪失败:', error);
-            // 失败时存储到本地，待后续同步
-            storeEventForLaterSync(eventData);
-        });
+        // 发送到Google Analytics 4
+        gtagTrackEvent(eventName, eventData);
+
+        // 同时尝试发送到自定义API（如果配置了的话）
+        if (API_CONFIG.baseURL && !API_CONFIG.baseURL.includes('your-api-domain.com')) {
+            const customEventData = {
+                event: eventName,
+                properties: eventData
+            };
+
+            api.post(API_CONFIG.endpoints.trackEvent, customEventData).catch(error => {
+                console.warn('自定义事件追踪失败:', error);
+                // 失败时存储到本地，待后续同步
+                storeEventForLaterSync(customEventData);
+            });
+        }
 
     } catch (error) {
         console.warn('事件追踪错误:', error);
@@ -269,12 +351,29 @@ export async function syncLocalData() {
         for (const item of pendingSync) {
             if (item.type === 'email_submission') {
                 try {
-                    const result = await api.post(API_CONFIG.endpoints.submitEmail, item.data);
-                    syncResults.push({
-                        item,
-                        success: result.success,
-                        error: result.error
+                    // 尝试通过 Formspree 同步
+                    const formData = new FormData();
+                    Object.keys(item.data).forEach(key => {
+                        formData.append(key.replace('_', '_'), item.data[key]);
                     });
+
+                    const response = await fetch(API_CONFIG.formURL, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        syncResults.push({
+                            item,
+                            success: true
+                        });
+                    } else {
+                        throw new Error('Formspree同步失败');
+                    }
+
                 } catch (error) {
                     syncResults.push({
                         item,
@@ -294,13 +393,12 @@ export async function syncLocalData() {
             localStorage.setItem('pendingSync', JSON.stringify(remainingSync));
         }
 
-        // 同步事件数据
+        // 同步事件数据到GA4
         const pendingEvents = JSON.parse(localStorage.getItem('pendingEvents') || '[]');
         if (pendingEvents.length > 0) {
             try {
-                await api.post(API_CONFIG.endpoints.trackEvent, {
-                    batch: true,
-                    events: pendingEvents
+                pendingEvents.forEach(event => {
+                    gtagTrackEvent(event.event, event.properties);
                 });
                 localStorage.removeItem('pendingEvents');
             } catch (error) {
@@ -357,13 +455,23 @@ window.addEventListener('load', function() {
 // 页面卸载前同步数据
 window.addEventListener('beforeunload', function() {
     if (isOnline()) {
-        // 使用sendBeacon进行快速同步
-        const pendingSync = localStorage.getItem('pendingSync');
-        if (pendingSync) {
-            navigator.sendBeacon(
-                `${API_CONFIG.baseURL}/sync/batch`,
-                pendingSync
-            );
+        // 使用sendBeacon进行快速同步到Formspree
+        const pendingSync = JSON.parse(localStorage.getItem('pendingSync') || '[]');
+        const emailSubmissions = pendingSync.filter(item => item.type === 'email_submission');
+
+        if (emailSubmissions.length > 0) {
+            emailSubmissions.forEach(item => {
+                try {
+                    const formData = new FormData();
+                    Object.keys(item.data).forEach(key => {
+                        formData.append(key.replace('_', '_'), item.data[key]);
+                    });
+
+                    navigator.sendBeacon(API_CONFIG.formURL, formData);
+                } catch (error) {
+                    console.warn('页面卸载同步失败:', error);
+                }
+            });
         }
     }
 });

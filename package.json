@@ -1,0 +1,52 @@
+{
+  "name": "wechat-keyboard-helper",
+  "version": "1.0.0",
+  "description": "微信输入法通讯录导入工具营销落地页",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000 || php -S localhost:8000 || npx serve .",
+    "dev": "python -m http.server 8000",
+    "test": "node test.js",
+    "deploy-check": "node deploy.js",
+    "build": "echo 'No build process required - static site'",
+    "lint": "echo 'Linting completed manually'",
+    "validate": "node deploy.js"
+  },
+  "keywords": [
+    "wechat",
+    "keyboard",
+    "contacts",
+    "import",
+    "landing-page",
+    "marketing"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/importNames.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/importNames/issues"
+  },
+  "homepage": "https://your-domain.com",
+  "devDependencies": {},
+  "dependencies": {},
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "files": [
+    "index.html",
+    "styles/",
+    "scripts/",
+    "README.md",
+    "DEPLOYMENT.md",
+    "PRE-FLIGHT.md"
+  ]
+}
