@@ -1,26 +1,27 @@
-// API配置 - 使用Getform服务
+// API配置 - 使用金数据服务
 const API_CONFIG = {
-    // Getform 配置 - 简单易用的表单服务
-    getform: {
-        formURL: 'https://getform.io/f/adrdjyda', // 替换为你的Getform表单ID
-        // Getform字段映射（自动映射，无需特殊配置）
-        fieldName: {
-            email: 'email',
-            source: 'source',
-            timestamp: 'timestamp',
-            userAgent: 'user_agent',
-            referrer: 'referrer',
-            language: 'language'
+    // 金数据配置 - 中国本土表单服务
+    jinshuju: {
+        formKey: 'YOUR_JINSHUJU_FORM_KEY', // 替换为你的金数据表单Key
+        apiURL: 'https://api.jinshuju.net/v1',
+        // 金数据表单字段映射 - 需要根据你的表单字段调整
+        fieldMapping: {
+            email: 'field_1', // 邮箱字段
+            source: 'field_2', // 来源字段
+            timestamp: 'field_3', // 时间戳字段
+            userAgent: 'field_4', // 用户代理字段
+            referrer: 'field_5', // 来源页面字段
+            language: 'field_6' // 语言字段
         }
     },
     // Google Analytics 4 配置
     ga4MeasurementId: 'G-1HLK0D7F8M', // 替换为你的GA4测量ID
     // 邮件直连备选方案
     emailDirect: {
-        recipient: 'choufucai@gmail.com', // 替换为你的接收邮箱
+        recipient: 'your-email@example.com', // 替换为你的接收邮箱
         subject: '微信输入法助手 - 新用户预约'
     },
-    timeout: 15000, // Getform可能需要更长的时间
+    timeout: 10000,
     endpoints: {
         submitEmail: '/email/subscribe',
         trackEvent: '/analytics/track',
@@ -133,52 +134,45 @@ class API {
 // 创建API实例
 const api = new API();
 
-// Getform API请求封装
-class GetformAPI {
-    constructor(config = API_CONFIG.getform) {
+// 金数据API请求封装
+class JinshujuAPI {
+    constructor(config = API_CONFIG.jinshuju) {
         this.config = config;
-        this.formURL = config.formURL;
-        this.fieldName = config.fieldName;
+        this.baseURL = config.apiURL;
+        this.formKey = config.formKey;
+        this.fieldMapping = config.fieldMapping;
     }
 
-    // 提交数据到Getform
+    // 提交数据到金数据
     async submitData(data) {
         try {
-            // Getform使用FormData格式提交
-            const formData = new FormData();
+            const url = `${this.baseURL}/forms/${this.formKey}/submissions`;
 
-            // 添加数据到FormData
-            Object.keys(data).forEach(key => {
-                if (data[key] !== undefined && data[key] !== null) {
-                    formData.append(key, data[key]);
+            // 根据字段映射转换数据
+            const mappedData = {};
+            Object.keys(this.fieldMapping).forEach(key => {
+                const fieldName = this.fieldMapping[key];
+                if (data[key] !== undefined) {
+                    mappedData[fieldName] = data[key];
                 }
             });
 
-            // 添加额外的元数据
-            formData.append('form_source', 'wechat_keyboard_helper_landing_page');
-            formData.append('submission_date', new Date().toLocaleDateString());
-
-            const response = await fetch(this.formURL, {
+            const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
                 headers: {
-                    'Accept': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.getAuthToken()}`
+                },
+                body: JSON.stringify({
+                    submission: mappedData
+                })
             });
 
             if (!response.ok) {
-                throw new Error(`Getform提交失败: ${response.status} ${response.statusText}`);
+                throw new Error(`金数据提交失败: ${response.status} ${response.statusText}`);
             }
 
-            // Getform通常返回简单的成功响应
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                // 如果响应不是JSON，也认为是成功的
-                result = { success: true };
-            }
-
+            const result = await response.json();
             return {
                 success: true,
                 data: result,
@@ -186,7 +180,7 @@ class GetformAPI {
             };
 
         } catch (error) {
-            console.error('Getform提交错误:', error);
+            console.error('金数据提交错误:', error);
             return {
                 success: false,
                 message: '提交失败，请稍后重试',
@@ -194,12 +188,39 @@ class GetformAPI {
             };
         }
     }
+
+    // 获取认证token（简化版本，实际使用时需要从金数据获取）
+    getAuthToken() {
+        // 金数据通常使用API Token认证
+        // 这里需要替换为实际的API Token
+        return 'YOUR_JINSHUJU_API_TOKEN';
+    }
+
+    // 检查表单字段
+    async getFormFields() {
+        try {
+            const url = `${this.baseURL}/forms/${this.formKey}/fields`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${this.getAuthToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const fields = await response.json();
+                return fields;
+            }
+        } catch (error) {
+            console.warn('获取表单字段失败:', error);
+        }
+        return null;
+    }
 }
 
-// 创建Getform API实例
-const getformAPI = new GetformAPI();
+// 创建金数据API实例
+const jinshujuAPI = new JinshujuAPI();
 
-// 邮箱提交API - 使用Getform
+// 邮箱提交API - 使用金数据
 export async function submitEmail(email) {
     try {
         // 准备提交数据
@@ -207,23 +228,22 @@ export async function submitEmail(email) {
             email: email,
             source: 'landing_page',
             timestamp: new Date().toISOString(),
-            user_agent: navigator.userAgent,
+            userAgent: navigator.userAgent,
             referrer: document.referrer || 'direct',
-            language: navigator.language,
-            page_url: window.location.href
+            language: navigator.language
         };
 
-        // 检查是否配置了Getform
-        if (API_CONFIG.getform.formURL && !API_CONFIG.getform.formURL.includes('YOUR_FORM_ID')) {
-            // 尝试使用Getform提交
-            const getformResult = await getformAPI.submitData(submissionData);
+        // 检查是否配置了金数据
+        if (API_CONFIG.jinshuju.formKey && !API_CONFIG.jinshuju.formKey.includes('YOUR_JINSHUJU_FORM_KEY')) {
+            // 尝试使用金数据提交
+            const jinshujuResult = await jinshujuAPI.submitData(submissionData);
 
-            if (getformResult.success) {
+            if (jinshujuResult.success) {
                 // 记录成功事件到GA4
                 gtagTrackEvent('email_submitted', {
                     email: email,
                     source: 'landing_page',
-                    method: 'getform'
+                    method: 'jinshuju'
                 });
 
                 return {
@@ -231,12 +251,12 @@ export async function submitEmail(email) {
                     message: '预约成功！我们会在工具发布后第一时间通知您。'
                 };
             } else {
-                console.warn('Getform提交失败:', getformResult.error);
-                throw new Error('Getform提交失败');
+                console.warn('金数据提交失败:', jinshujuResult.error);
+                throw new Error('金数据提交失败');
             }
         } else {
-            // 如果未配置Getform，使用备选方案
-            throw new Error('Getform未配置');
+            // 如果未配置金数据，使用备选方案
+            throw new Error('金数据未配置');
         }
 
     } catch (error) {
@@ -437,26 +457,25 @@ export async function syncLocalData() {
         for (const item of pendingSync) {
             if (item.type === 'email_submission') {
                 try {
-                    // 尝试通过Getform同步
+                    // 尝试通过金数据同步
                     const submissionData = {
                         email: item.data.email,
                         source: 'landing_page',
                         timestamp: item.data.timestamp,
-                        user_agent: navigator.userAgent,
+                        userAgent: navigator.userAgent,
                         referrer: document.referrer || 'direct',
-                        language: navigator.language,
-                        page_url: window.location.href
+                        language: navigator.language
                     };
 
-                    const getformResult = await getformAPI.submitData(submissionData);
+                    const jinshujuResult = await jinshujuAPI.submitData(submissionData);
 
-                    if (getformResult.success) {
+                    if (jinshujuResult.success) {
                         syncResults.push({
                             item,
                             success: true
                         });
                     } else {
-                        throw new Error('Getform同步失败');
+                        throw new Error('金数据同步失败');
                     }
 
                 } catch (error) {
@@ -540,7 +559,7 @@ window.addEventListener('load', function() {
 // 页面卸载前同步数据
 window.addEventListener('beforeunload', function() {
     if (isOnline()) {
-        // 使用sendBeacon进行快速同步到Getform
+        // 使用sendBeacon进行快速同步到金数据
         const pendingSync = JSON.parse(localStorage.getItem('pendingSync') || '[]');
         const emailSubmissions = pendingSync.filter(item => item.type === 'email_submission');
 
@@ -551,20 +570,26 @@ window.addEventListener('beforeunload', function() {
                         email: item.data.email,
                         source: 'landing_page',
                         timestamp: item.data.timestamp,
-                        user_agent: navigator.userAgent,
+                        userAgent: navigator.userAgent,
                         referrer: document.referrer || 'direct',
-                        language: navigator.language,
-                        page_url: window.location.href
+                        language: navigator.language
                     };
 
-                    // 构建FormData用于sendBeacon
-                    const formData = new FormData();
-                    Object.keys(submissionData).forEach(key => {
-                        formData.append(key, submissionData[key]);
+                    // 构建金数据API请求
+                    const url = `${API_CONFIG.jinshuju.apiURL}/forms/${API_CONFIG.jinshuju.formKey}/submissions`;
+                    const data = {
+                        submission: {}
+                    };
+
+                    // 根据字段映射转换数据
+                    Object.keys(API_CONFIG.jinshuju.fieldMapping).forEach(key => {
+                        const fieldName = API_CONFIG.jinshuju.fieldMapping[key];
+                        if (submissionData[key] !== undefined) {
+                            data.submission[fieldName] = submissionData[key];
+                        }
                     });
 
-                    // 使用sendBeacon发送
-                    navigator.sendBeacon(API_CONFIG.getform.formURL, formData);
+                    navigator.sendBeacon(url, JSON.stringify(data));
                 } catch (error) {
                     console.warn('页面卸载同步失败:', error);
                 }

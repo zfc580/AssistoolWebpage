@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试 - 微信输入法助手</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+    <div style="padding: 50px; max-width: 600px; margin: 0 auto;">
+        <h1>微信输入法助手 - 测试页面</h1>
+        <p>测试邮箱提交功能是否正常工作</p>
+
+        <form id="emailForm" style="margin-top: 30px;">
+            <div style="margin-bottom: 15px;">
+                <label for="emailInput" style="display: block; margin-bottom: 5px;">邮箱地址：</label>
+                <input
+                    type="email"
+                    id="emailInput"
+                    placeholder="请输入您的邮箱地址"
+                    required
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"
+                    pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                >
+            </div>
+            <button type="submit" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                提交测试
+            </button>
+        </form>
+
+        <div id="formMessage" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
+
+        <div style="margin-top: 30px;">
+            <h3>测试说明：</h3>
+            <ul>
+                <li>输入一个有效的邮箱地址</li>
+                <li>点击"提交测试"按钮</li>
+                <li>查看控制台日志和页面消息</li>
+                <li>检查是否成功发送到Getform</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>控制台测试命令：</h3>
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;">
+// 测试API是否加载
+console.log('API对象:', window.API);
+
+// 测试邮箱提交
+window.API.submitEmail('test@example.com').then(result => {
+    console.log('提交结果:', result);
+});
+            </pre>
+        </div>
+    </div>
+
+    <!-- 成功提示弹窗 -->
+    <div class="modal" id="successModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
+            <h3>预约成功！</h3>
+            <p>我们会在工具发布后第一时间通知您</p>
+            <button onclick="closeModal()" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px;">确定</button>
+        </div>
+    </div>
+
+    <!-- 先加载API，再加载main -->
+    <script src="scripts/api.js"></script>
+    <script>
+        // 简化的测试脚本
+        const emailForm = document.getElementById('emailForm');
+        const emailInput = document.getElementById('emailInput');
+        const formMessage = document.getElementById('formMessage');
+        const successModal = document.getElementById('successModal');
+
+        function showMessage(message, type) {
+            formMessage.textContent = message;
+            formMessage.style.display = 'block';
+            formMessage.style.background = type === 'error' ? '#f8d7da' : '#d4edda';
+            formMessage.style.color = type === 'error' ? '#721c24' : '#155724';
+            formMessage.style.border = `1px solid ${type === 'error' ? '#f5c6cb' : '#c3e6cb'}`;
+        }
+
+        function hideMessage() {
+            formMessage.style.display = 'none';
+        }
+
+        function showSuccessModal() {
+            successModal.style.display = 'block';
+        }
+
+        function closeModal() {
+            successModal.style.display = 'none';
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const email = emailInput.value.trim();
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+            if (!emailRegex.test(email)) {
+                showMessage('请输入有效的邮箱地址', 'error');
+                return;
+            }
+
+            // 检查API是否加载
+            if (!window.API || !window.API.submitEmail) {
+                showMessage('API未加载，请刷新页面重试', 'error');
+                return;
+            }
+
+            // 显示加载状态
+            const submitBtn = emailForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '提交中...';
+            submitBtn.disabled = true;
+
+            try {
+                console.log('开始提交邮箱:', email);
+                const result = await window.API.submitEmail(email);
+                console.log('提交结果:', result);
+
+                if (result.success) {
+                    showSuccessModal();
+                    emailForm.reset();
+                    hideMessage();
+                } else {
+                    showMessage(result.message || '提交失败，请稍后重试', 'error');
+                }
+            } catch (error) {
+                console.error('提交错误:', error);
+                showMessage('网络错误，请检查网络连接后重试', 'error');
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        emailForm.addEventListener('submit', handleFormSubmit);
+
+        // 页面加载完成后的检查
+        window.addEventListener('load', function() {
+            console.log('页面加载完成');
+            console.log('API对象:', window.API);
+            console.log('Getform配置:', window.API ? '已加载' : '未加载');
+        });
+
+        // 点击模态框外部关闭
+        successModal.addEventListener('click', function(event) {
+            if (event.target === successModal) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

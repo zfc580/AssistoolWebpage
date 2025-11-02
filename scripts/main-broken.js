@@ -1,3 +1,6 @@
+// 导入API函数
+import { submitEmail } from './api.js';
+
 // DOM元素引用
 const emailForm = document.getElementById('emailForm');
 const emailInput = document.getElementById('emailInput');
@@ -110,13 +113,8 @@ async function handleFormSubmit(event) {
     submitBtn.disabled = true;
 
     try {
-        // 使用window.API.submitEmail
-        if (!window.API || !window.API.submitEmail) {
-            throw new Error('API未加载，请刷新页面重试');
-        }
-
         // 调用API提交邮箱
-        const result = await window.API.submitEmail(email);
+        const result = await submitEmail(email);
 
         if (result.success) {
             // 显示成功消息

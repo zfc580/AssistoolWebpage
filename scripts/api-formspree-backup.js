@@ -1,26 +1,12 @@
-// API配置 - 使用Getform服务
+// API配置 - 使用免费第三方服务
 const API_CONFIG = {
-    // Getform 配置 - 简单易用的表单服务
-    getform: {
-        formURL: 'https://getform.io/f/adrdjyda', // 替换为你的Getform表单ID
-        // Getform字段映射（自动映射，无需特殊配置）
-        fieldName: {
-            email: 'email',
-            source: 'source',
-            timestamp: 'timestamp',
-            userAgent: 'user_agent',
-            referrer: 'referrer',
-            language: 'language'
-        }
-    },
+    // Formspree 配置 - 免费邮箱收集服务
+    formURL: 'https://formspree.io/f/YOUR_FORMSPREE_ID', // 替换为你的Formspree表单ID
     // Google Analytics 4 配置
     ga4MeasurementId: 'G-1HLK0D7F8M', // 替换为你的GA4测量ID
-    // 邮件直连备选方案
-    emailDirect: {
-        recipient: 'choufucai@gmail.com', // 替换为你的接收邮箱
-        subject: '微信输入法助手 - 新用户预约'
-    },
-    timeout: 15000, // Getform可能需要更长的时间
+    // Google Sheets 备选方案
+    sheetDBEndpoint: 'https://api.sheetdb.io/api/v1/YOUR_SHEETDB_ID', // 可选备选方案
+    timeout: 10000,
     endpoints: {
         submitEmail: '/email/subscribe',
         trackEvent: '/analytics/track',
@@ -133,153 +119,81 @@ class API {
 // 创建API实例
 const api = new API();
 
-// Getform API请求封装
-class GetformAPI {
-    constructor(config = API_CONFIG.getform) {
-        this.config = config;
-        this.formURL = config.formURL;
-        this.fieldName = config.fieldName;
-    }
+// 邮箱提交API - 使用Formspree
+export async function submitEmail(email) {
+    try {
+        // 首先尝试使用Formspree
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('source', 'landing_page');
+        formData.append('timestamp', new Date().toISOString());
+        formData.append('user_agent', navigator.userAgent);
+        formData.append('referrer', document.referrer || 'direct');
+        formData.append('language', navigator.language);
 
-    // 提交数据到Getform
-    async submitData(data) {
-        try {
-            // Getform使用FormData格式提交
-            const formData = new FormData();
-
-            // 添加数据到FormData
-            Object.keys(data).forEach(key => {
-                if (data[key] !== undefined && data[key] !== null) {
-                    formData.append(key, data[key]);
-                }
-            });
-
-            // 添加额外的元数据
-            formData.append('form_source', 'wechat_keyboard_helper_landing_page');
-            formData.append('submission_date', new Date().toLocaleDateString());
-
-            const response = await fetch(this.formURL, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Getform提交失败: ${response.status} ${response.statusText}`);
+        const response = await fetch(API_CONFIG.formURL, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
             }
+        });
 
-            // Getform通常返回简单的成功响应
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                // 如果响应不是JSON，也认为是成功的
-                result = { success: true };
-            }
+        if (response.ok) {
+            // 记录成功事件到GA4
+            gtagTrackEvent('email_submitted', {
+                email: email,
+                source: 'landing_page'
+            });
 
             return {
                 success: true,
-                data: result,
                 message: '预约成功！我们会在工具发布后第一时间通知您。'
             };
-
-        } catch (error) {
-            console.error('Getform提交错误:', error);
-            return {
-                success: false,
-                message: '提交失败，请稍后重试',
-                error: error.message
-            };
-        }
-    }
-}
-
-// 创建Getform API实例
-const getformAPI = new GetformAPI();
-
-// 邮箱提交API - 使用Getform
-export async function submitEmail(email) {
-    try {
-        // 准备提交数据
-        const submissionData = {
-            email: email,
-            source: 'landing_page',
-            timestamp: new Date().toISOString(),
-            user_agent: navigator.userAgent,
-            referrer: document.referrer || 'direct',
-            language: navigator.language,
-            page_url: window.location.href
-        };
-
-        // 检查是否配置了Getform
-        if (API_CONFIG.getform.formURL && !API_CONFIG.getform.formURL.includes('YOUR_FORM_ID')) {
-            // 尝试使用Getform提交
-            const getformResult = await getformAPI.submitData(submissionData);
-
-            if (getformResult.success) {
-                // 记录成功事件到GA4
-                gtagTrackEvent('email_submitted', {
-                    email: email,
-                    source: 'landing_page',
-                    method: 'getform'
-                });
-
-                return {
-                    success: true,
-                    message: '预约成功！我们会在工具发布后第一时间通知您。'
-                };
-            } else {
-                console.warn('Getform提交失败:', getformResult.error);
-                throw new Error('Getform提交失败');
-            }
         } else {
-            // 如果未配置Getform，使用备选方案
-            throw new Error('Getform未配置');
+            throw new Error('Formspree提交失败');
         }
 
     } catch (error) {
         console.error('邮箱提交错误:', error);
 
-        // 尝试备选方案1：邮件直连
-        try {
-            if (API_CONFIG.emailDirect.recipient && !API_CONFIG.emailDirect.recipient.includes('your-email@example.com')) {
-                const mailtoResult = await submitEmailViaMailto(email);
-                if (mailtoResult.success) {
-                    return mailtoResult;
+        // 尝试备选方案：Google Sheets (如果配置了的话)
+        if (API_CONFIG.sheetDBEndpoint && !API_CONFIG.sheetDBEndpoint.includes('YOUR_SHEETDB_ID')) {
+            try {
+                const sheetResponse = await fetch(API_CONFIG.sheetDBEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        source: 'landing_page',
+                        timestamp: new Date().toISOString(),
+                        user_agent: navigator.userAgent,
+                        referrer: document.referrer || 'direct',
+                        language: navigator.language
+                    })
+                });
+
+                if (sheetResponse.ok) {
+                    gtagTrackEvent('email_submitted', {
+                        email: email,
+                        source: 'landing_page',
+                        method: 'sheetdb'
+                    });
+
+                    return {
+                        success: true,
+                        message: '预约成功！我们会在工具发布后第一时间通知您。'
+                    };
                 }
+            } catch (sheetError) {
+                console.warn('Google Sheets提交失败:', sheetError);
             }
-        } catch (mailtoError) {
-            console.warn('邮件直连失败:', mailtoError);
         }
 
         // 最后使用本地存储作为备选方案
         return fallbackEmailSubmission(email);
-    }
-}
-
-// 邮件直连备选方案
-async function submitEmailViaMailto(email) {
-    try {
-        const subject = encodeURIComponent(API_CONFIG.emailDirect.subject);
-        const body = encodeURIComponent(
-            `新用户预约信息：\n邮箱：${email}\n时间：${new Date().toLocaleString()}\n来源：${document.referrer || '直接访问'}\n用户代理：${navigator.userAgent}`
-        );
-
-        const mailtoURL = `mailto:${API_CONFIG.emailDirect.recipient}?subject=${subject}&body=${body}`;
-
-        // 尝试打开邮件客户端
-        window.open(mailtoURL, '_blank');
-
-        return {
-            success: true,
-            message: '请使用邮件客户端发送预约信息，我们会尽快处理。',
-            isMailto: true
-        };
-
-    } catch (error) {
-        throw new Error('邮件直连失败');
     }
 }
 
@@ -437,26 +351,27 @@ export async function syncLocalData() {
         for (const item of pendingSync) {
             if (item.type === 'email_submission') {
                 try {
-                    // 尝试通过Getform同步
-                    const submissionData = {
-                        email: item.data.email,
-                        source: 'landing_page',
-                        timestamp: item.data.timestamp,
-                        user_agent: navigator.userAgent,
-                        referrer: document.referrer || 'direct',
-                        language: navigator.language,
-                        page_url: window.location.href
-                    };
+                    // 尝试通过 Formspree 同步
+                    const formData = new FormData();
+                    Object.keys(item.data).forEach(key => {
+                        formData.append(key.replace('_', '_'), item.data[key]);
+                    });
 
-                    const getformResult = await getformAPI.submitData(submissionData);
+                    const response = await fetch(API_CONFIG.formURL, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
 
-                    if (getformResult.success) {
+                    if (response.ok) {
                         syncResults.push({
                             item,
                             success: true
                         });
                     } else {
-                        throw new Error('Getform同步失败');
+                        throw new Error('Formspree同步失败');
                     }
 
                 } catch (error) {
@@ -540,31 +455,19 @@ window.addEventListener('load', function() {
 // 页面卸载前同步数据
 window.addEventListener('beforeunload', function() {
     if (isOnline()) {
-        // 使用sendBeacon进行快速同步到Getform
+        // 使用sendBeacon进行快速同步到Formspree
         const pendingSync = JSON.parse(localStorage.getItem('pendingSync') || '[]');
         const emailSubmissions = pendingSync.filter(item => item.type === 'email_submission');
 
         if (emailSubmissions.length > 0) {
             emailSubmissions.forEach(item => {
                 try {
-                    const submissionData = {
-                        email: item.data.email,
-                        source: 'landing_page',
-                        timestamp: item.data.timestamp,
-                        user_agent: navigator.userAgent,
-                        referrer: document.referrer || 'direct',
-                        language: navigator.language,
-                        page_url: window.location.href
-                    };
-
-                    // 构建FormData用于sendBeacon
                     const formData = new FormData();
-                    Object.keys(submissionData).forEach(key => {
-                        formData.append(key, submissionData[key]);
+                    Object.keys(item.data).forEach(key => {
+                        formData.append(key.replace('_', '_'), item.data[key]);
                     });
 
-                    // 使用sendBeacon发送
-                    navigator.sendBeacon(API_CONFIG.getform.formURL, formData);
+                    navigator.sendBeacon(API_CONFIG.formURL, formData);
                 } catch (error) {
                     console.warn('页面卸载同步失败:', error);
                 }
