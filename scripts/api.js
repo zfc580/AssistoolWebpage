@@ -200,7 +200,7 @@ class GetformAPI {
 const getformAPI = new GetformAPI();
 
 // 邮箱提交API - 使用Getform
-export async function submitEmail(email) {
+async function submitEmail(email) {
     try {
         // 准备提交数据
         const submissionData = {
@@ -357,7 +357,7 @@ function gtagTrackEvent(eventName, parameters = {}) {
 }
 
 // 事件追踪API - 使用Google Analytics 4
-export async function trackEvent(eventName, properties = {}) {
+async function trackEvent(eventName, properties = {}) {
     try {
         const eventData = {
             ...properties,
@@ -417,7 +417,7 @@ function storeEventForLaterSync(eventData) {
 }
 
 // 获取公开统计数据
-export async function getPublicStats() {
+async function getPublicStats() {
     try {
         const response = await api.get(API_CONFIG.endpoints.getStats);
         return response.success ? response.data : null;
@@ -428,7 +428,7 @@ export async function getPublicStats() {
 }
 
 // 同步本地数据到服务器
-export async function syncLocalData() {
+async function syncLocalData() {
     try {
         // 同步待处理的邮箱提交
         const pendingSync = JSON.parse(localStorage.getItem('pendingSync') || '[]');
@@ -507,7 +507,7 @@ export async function syncLocalData() {
 }
 
 // 网络状态检测
-export function isOnline() {
+function isOnline() {
     return navigator.onLine;
 }
 
@@ -574,7 +574,7 @@ window.addEventListener('beforeunload', function() {
 });
 
 // 导出API实例和函数
-export default api;
+// export default api;
 
 // 全局API对象（供非模块化脚本使用）
 window.API = {
