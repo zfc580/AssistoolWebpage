@@ -3,63 +3,16 @@ const emailForm = document.getElementById('emailForm');
 const emailInput = document.getElementById('emailInput');
 const formMessage = document.getElementById('formMessage');
 const successModal = document.getElementById('successModal');
-const countdownElements = {
-    days: document.getElementById('days'),
-    hours: document.getElementById('hours'),
-    minutes: document.getElementById('minutes'),
-    seconds: document.getElementById('seconds')
-};
-
-// 设置目标时间（从现在开始15天后）
-const targetDate = new Date();
-targetDate.setDate(targetDate.getDate() + 15);
-targetDate.setHours(0, 0, 0, 0);
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const navMenu = document.querySelector('.nav-menu');
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    initializeCountdown();
     initializeFormValidation();
     initializeScrollAnimations();
     initializeSmoothScroll();
+    initializeMobileMenu();
 });
-
-// 倒计时功能
-function initializeCountdown() {
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-}
-
-function updateCountdown() {
-    const now = new Date().getTime();
-    const distance = targetDate.getTime() - now;
-
-    if (distance < 0) {
-        // 倒计时结束
-        Object.keys(countdownElements).forEach(key => {
-            countdownElements[key].textContent = '00';
-        });
-        return;
-    }
-
-    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-    countdownElements.days.textContent = String(days).padStart(2, '0');
-    countdownElements.hours.textContent = String(hours).padStart(2, '0');
-    countdownElements.minutes.textContent = String(minutes).padStart(2, '0');
-    countdownElements.seconds.textContent = String(seconds).padStart(2, '0');
-
-    // 添加动画效果
-    Object.keys(countdownElements).forEach(key => {
-        const element = countdownElements[key];
-        element.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-            element.style.transform = 'scale(1)';
-        }, 100);
-    });
-}
 
 // 表单验证和提交
 function initializeFormValidation() {
@@ -276,9 +229,28 @@ window.addEventListener('scroll', function() {
 const header = document.querySelector('.header');
 header.style.transition = 'all 0.3s ease-out';
 
-// 移动端菜单切换（如果需要）
+// 移动端菜单功能
+function initializeMobileMenu() {
+    if (mobileMenuBtn && navMenu) {
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+
+        // 点击菜单外部关闭菜单
+        document.addEventListener('click', function(event) {
+            if (!mobileMenuBtn.contains(event.target) && !navMenu.contains(event.target)) {
+                navMenu.classList.remove('active');
+            }
+        });
+
+        // 点击菜单项后关闭菜单
+        navMenu.addEventListener('click', function(event) {
+            if (event.target.tagName === 'A') {
+                navMenu.classList.remove('active');
+            }
+        });
+    }
+}
+
 function toggleMobileMenu() {
-    const navMenu = document.querySelector('.nav-menu');
     navMenu.classList.toggle('active');
 }
 
@@ -335,7 +307,6 @@ document.addEventListener('visibilitychange', function() {
     } else {
         // 页面显示时恢复动画
         console.log('页面已显示');
-        updateCountdown();
     }
 });
 
